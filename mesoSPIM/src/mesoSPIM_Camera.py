@@ -151,8 +151,7 @@ class mesoSPIM_HamamatsuCamera(QtCore.QObject):
         self.fsize = 2048*2048
 
         self.xy_stack = np.memmap(self.path, mode = "write", dtype = np.uint16, shape = self.fsize * self.max_frame)
-        # self.xy_stack_tif = tf.memmap(tif_filename, shape=(self.max_frame, 2048, 2048), dtype = np.uint16)
-        # self.xz_stack = np.memmap(self.path[:-4]+'xz.raw', mode = "write", dtype = np.uint16, shape = 2048 * self.max_frame * 2048)
+        self.xz_stack = np.memmap(self.path[:-4]+'_xz.raw', mode = "write", dtype = np.uint16, shape = 2048 * self.max_frame * 2048)
         # self.yz_stack = np.memmap(self.path[:-4]+'yz.raw', mode = "write", dtype = np.uint16, shape = 2048 * self.max_frame * 2048)
 
         self.hcam.startAcquisition()
@@ -161,28 +160,13 @@ class mesoSPIM_HamamatsuCamera(QtCore.QObject):
         self.start_time = time.time()
 
     def add_images_to_series(self):
-        
-        # QtWidgets.QApplication.processEvents(QtCore.QEventLoop.AllEvents, 1)
+     
         if self.stopflag is False:
             print('Camera: Adding images started')
             if self.cur_image + 1 < self.max_frame:
                 [frames, dims] = self.hcam.getFrames()
 
-                # for aframe in frames:
-                    
-                #     image = aframe.getData()
-                #     self.xy_stack[self.cur_image*self.fsize:(self.cur_image+1)*self.fsize] = image
-
-                #     image = np.reshape(image, (-1, 2048))
-                #     # image = np.rot90(image)
-                #     self.sig_camera_frame.emit(image)
-                #     # ''' Creating a 512x512 subimage '''
-                #     # if self.cur_image % 20 == 0:
-                #     #     subimage = image[0:2048:4,0:2048:4]
-                #     #     self.sig_camera_frame.emit(subimage)
-                #     # image = image.flatten()
-                #     print('Done with image: #', self.cur_image)
-                #     self.cur_image += 1
+               
                 num_frames = len(frames)
                 for aframe in frames:
                 
@@ -191,13 +175,14 @@ class mesoSPIM_HamamatsuCamera(QtCore.QObject):
                     image = np.reshape(image, (-1, 2048))
                     image = np.rot90(image)
 
-                    # if (num_frames == 1) and (self.cur_image % 2 == 0):
-                    #     subimage = image[0:2048:4,0:2048:4]
-                    #     self.sig_camera_frame.emit(subimage)
-                    
+                                                         
                     self.sig_camera_frame.emit(image)
                     image = image.flatten()
                     self.xy_stack[self.cur_image*self.fsize:(self.cur_image+1)*self.fsize] = image
+
+                    for j in range(2048):
+                        line =  image[j*2048:(j+1)*2048]
+                        self.xz_stack[2048*j*self.max_frame+2048*self.cur_image:2048*j*self.max_frame+2048*self.cur_image+2048] = line
                     
                     print('Done with image: #', self.cur_image)
                     self.cur_image += 1
@@ -210,6 +195,7 @@ class mesoSPIM_HamamatsuCamera(QtCore.QObject):
         try:
             self.hcam.stopAcquisition()
             del self.xy_stack
+            del self.xz_stack
             print('Acq finished')
             print("Saved", self.cur_image + 1, "frames")
         except:
